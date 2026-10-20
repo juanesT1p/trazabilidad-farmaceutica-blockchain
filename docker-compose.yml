@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    container_name: pharma-chain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: prototype
+      POSTGRES_PASSWORD: prototype
+      POSTGRES_DB: pharma_chain
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prototype -d pharma_chain"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
