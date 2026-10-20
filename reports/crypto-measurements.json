@@ -1,0 +1,118 @@
+{
+  "repetitions": 500,
+  "warmup": 25,
+  "results": [
+    {
+      "algorithm": "ECDSA-secp256k1",
+      "repetitions": 500,
+      "publicKeyBytes": 65,
+      "secretKeyBytes": 32,
+      "signatureBytes": 65,
+      "keygen": {
+        "count": 500,
+        "meanMs": 3.7134185620000038,
+        "medianMs": 3.662229000000025,
+        "p95Ms": 4.020542999999861,
+        "stdDevMs": 0.19154595581559627
+      },
+      "sign": {
+        "count": 500,
+        "meanMs": 0.2752841200000114,
+        "medianMs": 0.26506799999992836,
+        "p95Ms": 0.34011099999997896,
+        "stdDevMs": 0.03750522126987346
+      },
+      "verify": {
+        "count": 500,
+        "meanMs": 1.4659476339999968,
+        "medianMs": 1.4466759999999113,
+        "p95Ms": 1.623707999999965,
+        "stdDevMs": 0.09631674715433924
+      }
+    },
+    {
+      "algorithm": "ML-DSA-44",
+      "repetitions": 500,
+      "publicKeyBytes": 1312,
+      "secretKeyBytes": 2560,
+      "signatureBytes": 2420,
+      "keygen": {
+        "count": 500,
+        "meanMs": 0.7229006599999939,
+        "medianMs": 0.7133499999999913,
+        "p95Ms": 0.7779850000006263,
+        "stdDevMs": 0.048307909872692366
+      },
+      "sign": {
+        "count": 500,
+        "meanMs": 3.1480199480000066,
+        "medianMs": 2.430543000000398,
+        "p95Ms": 7.250698999999713,
+        "stdDevMs": 2.1388723161194676
+      },
+      "verify": {
+        "count": 500,
+        "meanMs": 0.8327895639999869,
+        "medianMs": 0.8252179999999498,
+        "p95Ms": 0.8795340000006036,
+        "stdDevMs": 0.048901164220859564
+      }
+    },
+    {
+      "algorithm": "ML-DSA-65",
+      "repetitions": 500,
+      "publicKeyBytes": 1952,
+      "secretKeyBytes": 4032,
+      "signatureBytes": 3309,
+      "keygen": {
+        "count": 500,
+        "meanMs": 1.2421497119999585,
+        "medianMs": 1.236124000000018,
+        "p95Ms": 1.3077499999999418,
+        "stdDevMs": 0.055085764431617446
+      },
+      "sign": {
+        "count": 500,
+        "meanMs": 5.473995342000035,
+        "medianMs": 4.467281000001094,
+        "p95Ms": 12.006870000000163,
+        "stdDevMs": 3.7258866100551526
+      },
+      "verify": {
+        "count": 500,
+        "meanMs": 1.331877476000027,
+        "medianMs": 1.3229069999997591,
+        "p95Ms": 1.424195999999938,
+        "stdDevMs": 0.07285891128766314
+      }
+    },
+    {
+      "algorithm": "ML-DSA-87",
+      "repetitions": 500,
+      "publicKeyBytes": 2592,
+      "secretKeyBytes": 4896,
+      "signatureBytes": 4627,
+      "keygen": {
+        "count": 500,
+        "meanMs": 1.9684878419999878,
+        "medianMs": 1.9547629999997298,
+        "p95Ms": 2.0817170000009355,
+        "stdDevMs": 0.10340442929265041
+      },
+      "sign": {
+        "count": 500,
+        "meanMs": 6.521400267999972,
+        "medianMs": 5.4386779999986175,
+        "p95Ms": 13.882291999998415,
+        "stdDevMs": 3.574559577996663
+      },
+      "verify": {
+        "count": 500,
+        "meanMs": 2.129863932000026,
+        "medianMs": 2.116228000000774,
+        "p95Ms": 2.261293999999907,
+        "stdDevMs": 0.10444723872777349
+      }
+    }
+  ]
+}

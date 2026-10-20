@@ -1,0 +1,3 @@
+operation,count,meanGas,medianGas,stdDev
+createLot,30,140686.2,140691,5.878775382679627
+transferCustody,30,64332.6,64335,5.71314274283428
