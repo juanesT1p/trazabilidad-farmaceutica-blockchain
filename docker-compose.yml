@@ -8,11 +8,11 @@ services:
       POSTGRES_PASSWORD: prototype
       POSTGRES_DB: pharma_chain
     ports:
-      - "5432:5432"
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U prototype -d pharma_chain"]
+      test: ['CMD-SHELL', 'pg_isready -U prototype -d pharma_chain']
       interval: 5s
       timeout: 5s
       retries: 10

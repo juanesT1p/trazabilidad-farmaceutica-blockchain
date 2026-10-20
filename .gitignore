@@ -8,6 +8,6 @@ typechain-types/
 keys/
 data/
 *.local
-prisma/generated/
+src/generated/prisma/
 *.log
 .DS_Store

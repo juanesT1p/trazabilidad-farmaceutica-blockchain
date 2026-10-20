@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Actor {
+  address       String   @id @db.VarChar(42)
+  role          String   @db.VarChar(32)
+  level         Int
+  publicKeyHash String   @db.VarChar(66)
+  publicKey     String   @db.Text
+  createdAt     DateTime @default(now())
+
+  lotsAsCustodian Lot[]  @relation("CurrentCustodian")
+  eventsFrom      Event[] @relation("EventFrom")
+  eventsTo        Event[] @relation("EventTo")
+}
+
+model Lot {
+  id               String   @id
+  metadataHash     String   @db.VarChar(66)
+  currentCustodian String   @db.VarChar(42)
+  createdAt        DateTime @default(now())
+
+  custodian Actor  @relation("CurrentCustodian", fields: [currentCustodian], references: [address])
+  events    Event[]
+}
+
+model Event {
+  id            String   @id @default(cuid())
+  lotId         String
+  type          String   @db.VarChar(32)
+  fromAddress   String?  @db.VarChar(42)
+  toAddress     String   @db.VarChar(42)
+  timestamp     BigInt
+  metadata      Json
+  prevEventHash String?  @db.VarChar(66)
+  eventHash     String   @unique @db.VarChar(66)
+  canonicalJson String   @db.Text
+  signature     String   @db.Text
+  level         Int
+  txHash        String   @db.VarChar(66)
+  blockNumber   BigInt
+  createdAt     DateTime @default(now())
+
+  lot       Lot    @relation(fields: [lotId], references: [id])
+  fromActor Actor? @relation("EventFrom", fields: [fromAddress], references: [address])
+  toActor   Actor  @relation("EventTo", fields: [toAddress], references: [address])
+
+  @@index([lotId, timestamp])
+}

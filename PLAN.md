@@ -50,3 +50,11 @@
 - No se afirmará que una prueba o medición pasa si no se ejecutó.
 - Cada ambigüedad se resolverá con la opción mínima y se anotará en `docs/decisions/`.
 - Antes de pasar de etapa se intentará ejecutar lint, compilación y pruebas relevantes.
+
+## Estado al cierre
+
+- Preparación, contrato, backend, verificación, mediciones y documentación completadas.
+- Contrato: 5 pruebas reales pasando.
+- Backend: 10 pruebas reales pasando; cobertura Vitest reportada.
+- Mediciones de gas y firmas ejecutadas y guardadas en `reports/`.
+- Confirmación en testnet pública: `NO EJECUTADO` por ausencia de credenciales.
