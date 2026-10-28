@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Demo integral del prototipo de trazabilidad farmacéutica.
+#
+# Este archivo ejecuta, en orden:
+#   1. Métricas de ML-DSA: generación de claves, firmado, verificación y tamaños.
+#   2. Tests del contrato PharmaCustodyRegistry.
+#   3. Medición de gas de registerActor, createLot y transferCustody.
+#   4. Simulación local de fraude sobre LOTE-001 y consulta de /verify, si
+#      PostgreSQL y el backend están disponibles.
+#
+# La simulación de fraude modifica deliberadamente Event.metadata en la BD local.
+# Úsalo solamente sobre el entorno de demostración.
+
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
+# Hardhat guarda aquí sus compiladores. La ruta local evita problemas si la
+# caché global del usuario está bloqueada o no es escribible.
+if [[ -z "${XDG_CACHE_HOME:-}" || ! -d "$XDG_CACHE_HOME" || ! -w "$XDG_CACHE_HOME" ]]; then
+  export XDG_CACHE_HOME="/tmp/pharma-chain-hardhat-cache"
+fi
+
+echo
+echo "============================================================"
+echo " PRUEBA INTEGRAL — TRAZABILIDAD FARMACÉUTICA"
+echo "============================================================"
+echo "Este demo mide ML-DSA, prueba el contrato, mide gas y"
+echo "simula una alteración off-chain para probar /verify."
+echo
+
+echo "[1/4] Métricas criptográficas ML-DSA"
+npx ts-node scripts/medirMetricas.ts
+
+echo
+echo "[2/4] Tests del contrato Solidity"
+npx hardhat test
+
+echo
+echo "[3/4] Consumo de gas desde receipts de ethers.js"
+npx hardhat run scripts/measure-gas.ts
+
+echo
+echo "[4/4] Simulación de fraude off-chain"
+DB_CONTAINER="pharma-chain-postgres"
+VERIFY_URL="http://localhost:3000/lots/LOTE-001/verify"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker no está instalado; se omite la simulación de fraude."
+  exit 0
+fi
+
+if [[ "$(docker inspect -f '{{.State.Running}}' "$DB_CONTAINER" 2>/dev/null || true)" != "true" ]]; then
+  echo "El contenedor $DB_CONTAINER no está corriendo; se omite la simulación."
+  echo "Inícialo con: docker compose up -d postgres"
+  exit 0
+fi
+
+LOT_COUNT="$(docker exec "$DB_CONTAINER" psql -U prototype -d pharma_chain -tAc \
+  "SELECT count(*) FROM \"Event\" WHERE \"lotId\" = 'LOTE-001' AND type = 'LOT_CREATED';")"
+
+if [[ "${LOT_COUNT//[[:space:]]/}" == "0" ]]; then
+  echo "No existe todavía el evento LOT_CREATED de LOTE-001; se omite la alteración."
+  echo "Crea el lote desde la API y vuelve a ejecutar ./prueba."
+  exit 0
+fi
+
+echo "Alterando únicamente Event.metadata.cantidad a 9999..."
+docker exec "$DB_CONTAINER" psql -U prototype -d pharma_chain -c \
+  "UPDATE \"Event\" SET metadata = jsonb_set(metadata, '{cantidad}', to_jsonb(9999), true) WHERE \"lotId\" = 'LOTE-001' AND type = 'LOT_CREATED';"
+
+if command -v curl >/dev/null 2>&1 && curl --silent --fail --max-time 3 "$VERIFY_URL"; then
+  echo
+  echo "La respuesta anterior debe indicar valid=false y hashMatches=false."
+else
+  echo "El backend no responde en $VERIFY_URL."
+  echo "Cuando esté levantado, ejecuta:"
+  echo "curl -s $VERIFY_URL | jq"
+fi
+
+echo
+echo "Demo finalizado. La BD local quedó alterada deliberadamente para la prueba."

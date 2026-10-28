@@ -11,6 +11,7 @@ export default tseslint.config(
       'node_modules/**',
       'prisma/generated/**',
       'types/**',
+      'frontend/**',
     ],
   },
   eslint.configs.recommended,

@@ -9,6 +9,7 @@ datasource db {
 
 model Actor {
   address       String   @id @db.VarChar(42)
+  displayName   String?  @db.VarChar(80)
   role          String   @db.VarChar(32)
   level         Int
   publicKeyHash String   @db.VarChar(66)

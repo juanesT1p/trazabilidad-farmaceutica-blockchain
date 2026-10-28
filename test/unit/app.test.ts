@@ -6,7 +6,7 @@ import { PqcKeyStore } from '../../src/crypto.js';
 
 function makeApp() {
   const prisma = {
-    actor: { findUnique: vi.fn(), create: vi.fn() },
+    actor: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     lot: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     event: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
@@ -38,6 +38,62 @@ describe('HTTP API validation and authorization', () => {
       .send({ address: 'not-an-address', role: 'manufacturer' });
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Invalid input');
+  });
+
+  it('accepts an optional display name and rejects case-insensitive duplicates', async () => {
+    const { app, prisma } = makeApp();
+    vi.mocked(prisma.actor.create).mockResolvedValue({
+      address: '0x0000000000000000000000000000000000000001',
+      displayName: 'Laboratorios ABC',
+      role: 'manufacturer',
+      level: 65,
+      publicKeyHash: '0xkey',
+      publicKey: 'cHVi',
+      createdAt: new Date(),
+    } as never);
+    const created = await request(app).post('/actors').send({
+      address: '0x0000000000000000000000000000000000000001',
+      displayName: 'Laboratorios ABC',
+      role: 'manufacturer',
+      level: 65,
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.actor.displayName).toBe('Laboratorios ABC');
+
+    vi.mocked(prisma.actor.findFirst).mockResolvedValue({ address: '0xother' } as never);
+    const duplicate = await request(app).post('/actors').send({
+      address: '0x0000000000000000000000000000000000000002',
+      displayName: 'laboratorios abc',
+      role: 'distributor',
+      level: 65,
+    });
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.error).toContain('displayName');
+    expect(duplicate.body.error).toContain('already registered');
+  });
+
+  it('returns a controlled conflict when the actor address is already registered', async () => {
+    const { app, prisma } = makeApp();
+    vi.mocked(prisma.actor.findUnique).mockResolvedValue({ address: '0x0000000000000000000000000000000000000001' } as never);
+
+    const response = await request(app).post('/actors').send({
+      address: '0x0000000000000000000000000000000000000001',
+      role: 'manufacturer',
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body.error).toContain('already registered');
+  });
+
+  it('rejects display names with line breaks', async () => {
+    const { app } = makeApp();
+    const response = await request(app).post('/actors').send({
+      address: '0x0000000000000000000000000000000000000001',
+      displayName: 'Laboratorios\nABC',
+      role: 'manufacturer',
+    });
+    expect(response.status).toBe(400);
+    expect(response.body.details[0].message).toContain('line breaks');
   });
 
   it('rejects lot creation without an actor header', async () => {

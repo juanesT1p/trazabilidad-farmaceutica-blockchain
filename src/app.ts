@@ -1,7 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import type { Prisma, PrismaClient } from './generated/prisma/client.js';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import type { BlockchainService } from './blockchain.js';
 import { config } from './config.js';
 import {
@@ -22,6 +22,10 @@ import type { PqcKeyStore } from './crypto.js';
 import { openApiDocument } from './swagger.js';
 import { isEventContinuous } from './verification.js';
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
+}
+
 class HttpError extends Error {
   public constructor(
     public readonly status: number,
@@ -41,21 +45,78 @@ export function createApp(dependencies: AppDependencies): express.Express {
   const app = express();
   app.use(express.json({ limit: '128kb' }));
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/settings', (_req, res) => {
+    res.json({
+      environment: config.NODE_ENV,
+      rpcUrl: config.CHAIN_RPC_URL,
+      contractAddress: dependencies.blockchain.getContractAddress(),
+      runtimeOverride: dependencies.blockchain.hasRuntimeOverride(),
+    });
+  });
+  app.put('/settings/contract', (req, res, next) => {
+    try {
+      if (config.NODE_ENV === 'production') throw new HttpError(403, 'Runtime settings are disabled in production');
+      const input = z.object({ contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/) }).parse(req.body);
+      dependencies.blockchain.setContractAddress(input.contractAddress);
+      res.json({
+        environment: config.NODE_ENV,
+        rpcUrl: config.CHAIN_RPC_URL,
+        contractAddress: dependencies.blockchain.getContractAddress(),
+        runtimeOverride: dependencies.blockchain.hasRuntimeOverride(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+  app.get('/actors/:address', async (req, res, next) => {
+    try {
+      const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/).parse(req.params.address).toLowerCase();
+      const actor = await dependencies.prisma.actor.findUnique({ where: { address } });
+      if (!actor) throw new HttpError(404, `Actor "${address}" not found`);
+      const chain = await dependencies.blockchain.getActor(address);
+      res.json({ actor, chain });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.post('/actors', async (req, res, next) => {
     try {
       const input = actorInputSchema.parse(req.body);
       const level = (input.level ?? config.ML_DSA_LEVEL) as MlDsaLevel;
       const address = input.address.toLowerCase();
+      const existingActor = await dependencies.prisma.actor.findUnique({ where: { address } });
+      if (existingActor) throw new HttpError(409, `Actor "${address}" is already registered`);
+      if (input.displayName) {
+        const duplicate = await dependencies.prisma.actor.findFirst({
+          where: { displayName: { equals: input.displayName, mode: 'insensitive' } },
+        });
+        if (duplicate) throw new HttpError(409, `displayName "${input.displayName}" is already registered`);
+      }
       const publicKey = input.publicKey ? Buffer.from(input.publicKey, 'base64') : undefined;
       const key = await dependencies.keys.ensure(address, level, publicKey);
       const publicKeyBytes = Buffer.from(key.publicKey, 'base64');
       const publicKeyHash = hashPublicKey(publicKeyBytes);
       const tx = await dependencies.blockchain.registerActor(address, input.role, publicKeyHash);
-      const actor = await dependencies.prisma.actor.create({
-        data: { address, role: input.role, level, publicKeyHash, publicKey: key.publicKey },
-      });
+      let actor;
+      try {
+        actor = await dependencies.prisma.actor.create({
+          data: {
+            address,
+            displayName: input.displayName ?? null,
+            role: input.role,
+            level,
+            publicKeyHash,
+            publicKey: key.publicKey,
+          },
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error))
+          throw new HttpError(409, `displayName "${input.displayName}" is already registered`);
+        throw error;
+      }
       res.status(201).json({ actor, transaction: tx });
     } catch (error) {
       next(error);

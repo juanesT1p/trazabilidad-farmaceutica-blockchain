@@ -12,12 +12,23 @@ const distributor = signers[1]!;
 const registry = await new PharmaCustodyRegistry__factory(manufacturer).deploy();
 await registry.waitForDeployment();
 const hash = (value: string) => keccak256(toUtf8Bytes(value));
-await (await registry.registerActor(manufacturer.address, 1, hash('gas-manufacturer'))).wait();
-await (
-  await registry.connect(distributor).registerActor(distributor.address, 2, hash('gas-distributor'))
-).wait();
 
-const samples: Record<string, number[]> = { createLot: [], transferCustody: [] };
+const samples: Record<string, number[]> = {
+  registerActor: [],
+  createLot: [],
+  transferCustody: [],
+};
+
+const actorSigners = signers.slice(0, Math.min(signers.length, 10));
+for (const [index, actor] of actorSigners.entries()) {
+  const receipt = await (
+    await registry
+      .connect(actor)
+      .registerActor(actor.address, index === 0 ? 1 : 2, hash(`gas-actor-${index}`))
+  ).wait();
+  samples.registerActor!.push(Number(receipt!.gasUsed));
+}
+
 for (let index = 0; index < repetitions; index += 1) {
   const lotId = hash(`GAS-LOT-${index}`);
   const createReceipt = await (
@@ -54,3 +65,11 @@ await writeFile(
     .join('\n')}\n`,
 );
 console.log(JSON.stringify({ repetitions, summary }, null, 2));
+console.table(
+  Object.entries(summary).map(([operation, data]) => ({
+    función: operation,
+    muestras: data.count,
+    mediaGas: Math.round(data.mean),
+    medianaGas: data.median,
+  })),
+);

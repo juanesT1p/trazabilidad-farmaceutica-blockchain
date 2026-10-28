@@ -1,4 +1,4 @@
-import { Contract, JsonRpcProvider, Wallet, keccak256, toUtf8Bytes } from 'ethers';
+import { Contract, JsonRpcProvider, Wallet, getAddress, keccak256, toUtf8Bytes } from 'ethers';
 import { config } from './config.js';
 import type { Role } from './domain.js';
 
@@ -42,11 +42,35 @@ export function chainLotId(lotId: string): string {
 
 export class BlockchainService {
   private readonly provider = new JsonRpcProvider(config.CHAIN_RPC_URL);
-  private readonly contract: Contract;
+  private contract: Contract;
+  private contractAddress: string;
+  private runtimeOverride = false;
 
   public constructor(address = config.REGISTRY_CONTRACT_ADDRESS) {
     if (!address) throw new Error('REGISTRY_CONTRACT_ADDRESS is required');
-    this.contract = new Contract(address, abi, this.provider);
+    this.contractAddress = '';
+    this.contract = new Contract('0x0000000000000000000000000000000000000001', abi, this.provider);
+    this.setContractAddress(address, false);
+    this.runtimeOverride = false;
+  }
+
+  public getContractAddress(): string {
+    return this.contractAddress;
+  }
+
+  public hasRuntimeOverride(): boolean {
+    return this.runtimeOverride;
+  }
+
+  public setContractAddress(address: string, runtimeOverride = true): void {
+    if (!address) throw new Error('REGISTRY_CONTRACT_ADDRESS is required');
+    try {
+      this.contractAddress = getAddress(address);
+    } catch {
+      throw new Error('Contract address must be a valid EVM address');
+    }
+    this.contract = new Contract(this.contractAddress, abi, this.provider);
+    this.runtimeOverride = runtimeOverride;
   }
 
   private signer(actorAddress: string): Wallet {
